@@ -1,9 +1,27 @@
 [package]
-name = "MASS"
-version = "0.1.0"
 authors = ["carlos alejandro gutierrez sandoval <calgusa@gmail.com>"]
 edition = "2018"
+name = "mass"
+version = "0.1.0"
+
+[lib]
+crate-type = ["lib"]
+
+[features]
+default = []
+jemalloc = ["jemallocator"]
+numpy_support = ["numpy", "pyo3"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+itertools = "*"
+jemallocator = {version = "*", optional = true}
+num_cpus = "*"
+numpy = {version = "*", optional = true}
+pyo3 = {version = "*", optional = true}
+rustfft = "*"
+serde = {version = "*", features = ["derive"]}
+
+[profile.test]
+opt-level = 3
