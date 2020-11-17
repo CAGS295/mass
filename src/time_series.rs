@@ -35,3 +35,5 @@ impl Add<f64> for Record<f64> {
 }
 
 impl MassType for Record<f64> {}
+
+impl MassType for f64 {}
