@@ -10,7 +10,6 @@ crate-type = ["lib"]
 [features]
 default = []
 jemalloc = ["jemallocator"]
-numpy_support = ["numpy", "pyo3"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -18,8 +17,6 @@ numpy_support = ["numpy", "pyo3"]
 itertools = "*"
 jemallocator = {version = "*", optional = true}
 num_cpus = "*"
-numpy = {version = "*", optional = true}
-pyo3 = {version = "*", optional = true}
 rustfft = "*"
 serde = {version = "*", features = ["derive"]}
 
