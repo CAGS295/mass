@@ -7,7 +7,6 @@ use rustfft::num_traits::Zero;
 
 use num_cpus;
 pub mod math;
-pub mod numpy_bindings;
 pub mod stats;
 
 pub mod time_series;
@@ -143,7 +142,15 @@ pub fn mass_batch<T: MassType>(
     // TODO support nth top matches in parallel
     // consider doing full nth top matches with a partition pseudosort per thread to ensure global optima.
 
-    let step_size = batch_size - query.len();
+    let step_size = {
+        let x = batch_size - query.len();
+        if x == 0 {
+            1
+        } else {
+            x
+        }
+    };
+
     let chunks = ts.windows(batch_size).step_by(step_size);
 
     let remainder = ts.len() % (step_size);
