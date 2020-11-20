@@ -40,6 +40,7 @@ pub fn moving_avg<T: Into<f64> + Add<f64> + Copy>(values: &[T], periods: usize) 
 }
 
 /// append insertion enum for __fn append()__.
+//TODO move into proper scope
 pub enum Append {
     Front,
     Back,
