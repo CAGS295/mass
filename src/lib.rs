@@ -2,6 +2,7 @@ use std::fmt::Debug;
 
 use std::{ops, vec};
 
+use itertools::Itertools;
 use rustfft::num_complex::Complex;
 use rustfft::num_traits::Zero;
 
@@ -133,7 +134,7 @@ pub fn mass_batch<T: MassType>(
     debug_assert!(top_matches > 0, "Match at least one.");
     debug_assert!(jobs > 0, "Job count must be at least 1.");
 
-    // silently use at max all available cpus
+    // silently use at max all available cpus;not supported atm
     let jobs = jobs.min(cpus());
 
     // split work into chunks
@@ -179,11 +180,56 @@ pub fn mass_batch<T: MassType>(
     dists.iter().take(top_matches).copied().collect()
 }
 
+///batches into windows of the max between query length and [´batch_size´].
+/// rounds up batch size to the nearest power of two.
+#[inline]
+pub fn job_index(
+    ts: usize,
+    query: usize,
+    mut batch_size: usize,
+    _jobs: usize,
+) -> impl Iterator<Item = (usize, usize)> {
+    assert!(
+        batch_size > query,
+        "batch size must be greater than the query's length"
+    );
+
+    if !batch_size.is_power_of_two() {
+        batch_size = batch_size.next_power_of_two();
+    }
+
+    let step_size = batch_size - query;
+
+    let index = (0..ts)
+        .step_by(step_size)
+        .map(move |i| (i, ts.min(i + batch_size - 1)));
+    index
+}
+
 #[cfg(test)]
 pub mod tests {
+    use super::*;
 
     #[test]
     fn usize_div() {
         assert_eq!(5usize / 2usize, 2);
+    }
+
+    #[test]
+    fn jobs_range() {
+        let a = job_index(10, 2, 4, 1);
+        for i in a {
+            print!("{:?}\n", i);
+        }
+    }
+
+    ///When batching with [batch_size] < ts.len() the resulting overlapping window may not be properly sliced.
+    #[test]
+    fn overlapping_window() {
+        let a = &[0.0, 1.0, 2., 3., 5., 6.];
+        let b = &[2.0, 3.0];
+        let bsize = b.len();
+        let c = mass_batch(a, b, bsize, 1, 1);
+        assert!(c[0].0 == 2);
     }
 }
