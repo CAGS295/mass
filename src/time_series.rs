@@ -1,6 +1,8 @@
 use crate::MassType;
 use serde::Deserialize;
 use std::ops::Add;
+
+///Utility type to store an ordered sequence of data.
 pub struct TimeSeries<T> {
     pub series: Vec<Record<T>>,
 }
@@ -11,6 +13,7 @@ impl<T> TimeSeries<T> {
     }
 }
 
+/// Represents an observation (entry) at time $t$ in a time series.
 #[derive(Deserialize, Debug, Copy, Clone, PartialOrd, PartialEq)]
 pub struct Record<T>(T);
 
@@ -35,5 +38,4 @@ impl Add<f64> for Record<f64> {
 }
 
 impl MassType for Record<f64> {}
-
 impl MassType for f64 {}

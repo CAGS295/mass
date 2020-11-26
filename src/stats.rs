@@ -4,13 +4,13 @@ use std::{
 };
 
 /// $$E_[X]$$
-// could use online method
+// could use an online method
 pub fn mean<T: Into<f64> + Add<f64> + Copy>(values: &[T]) -> f64 {
     values.iter().fold(0.0, |x, y| x + (*y).into()) / values.len() as f64
 }
 
 /// $$E[X^2]$$
-// could use online method
+// could use an online method
 // product1? TODO
 fn e_x2<T: Into<f64> + Add<f64> + Copy>(values: &[T]) -> f64 {
     values
@@ -20,7 +20,7 @@ fn e_x2<T: Into<f64> + Add<f64> + Copy>(values: &[T]) -> f64 {
 }
 
 ///$$Var[X]$$
-// could use online method
+// could use an online method
 pub fn var<T: Into<f64> + Add<f64> + Copy>(values: &[T]) -> f64 {
     let mu = mean(values);
     e_x2(values) - mu * mu
@@ -31,9 +31,7 @@ pub fn std<T: Into<f64> + Add<f64> + Copy>(values: &[T]) -> f64 {
     var(values).sqrt()
 }
 
-// use std::fmt::Debug;
 ///Moving Average of X
-// pub fn moving_avg<T: Into<f64> + Add<f64> + Copy + Debug>(
 pub fn moving_avg<T: Into<f64> + Add<f64> + Copy>(values: &[T], periods: usize) -> Vec<f64> {
     let windows = values.windows(periods);
     windows.map(|win| mean(win)).collect()

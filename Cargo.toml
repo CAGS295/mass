@@ -8,8 +8,9 @@ version = "0.1.0"
 crate-type = ["lib"]
 
 [features]
-default = []
+default = ["pseudo_distance"]
 jemalloc = ["jemallocator"]
+pseudo_distance = []
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

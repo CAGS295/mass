@@ -1,10 +1,33 @@
+//!
+//!MASS: Mueen's Algorithm for Similarity Search in Rust!
+
+//! > Similarity search for time series subsequences is THE most important subroutine for time series pattern mining. Subsequence similarity search has been scaled to trillions obsetvations under both DTW (Dynamic Time Warping) and Euclidean distances [a]. The algorithms are ultra fast and efficient. The key technique that makes the algorithms useful is the Early Abandoning technique [b,e] known since 1994. However, the algorithms lack few properties that are useful for many time series data mining algorithms.
+
+//! > 1. Early abandoning depends on the dataset. The worst case complexity is still O(nm) where n is the length of the larger time series and m is the length of the short query.
+//! > 2. The algorithm can produce the most similar subsequence to the query and cannot produce the Distance Profile to all the subssequences given the query.
+
+//! > MASS is an algorithm to create Distance Profile of a query to a long time series. In this page we share a code for The Fastest Similarity Search Algorithm for Time Series Subsequences under Euclidean Distance. Early abandoning can occasionally beat this algorithm on some datasets for some queries. This algorithm is independent of data and query. The underlying concept of the algorithm is known for a long time to the signal processing community. We have used it for the first time on time series subsequence search under z-normalization. The algorithm was used as a subroutine in our papers [c,d] and the code are given below.
+
+//! > 1. The algorithm has an overall time complexity of O(n log n) which does not depend on datasets and is the lower bound of similarity search over time series subsequences.
+//! > 2. The algorithm produces all of the distances from the query to the subsequences of a long time series. In our recent paper, we generalize the usage of the distance profiles calculated using MASS in finding motifs, shapelets and discords. Check out the paper here.
+
+//!##features
+
+//!["jemalloc"] *TODO*
+//!["pseudo_distance"] simplifies the distance with the same optimization goal for increased performance.
+//!The distance output is no longer a distance but a score with the same optimum.
+
+//!@misc{FastestSimilaritySearch,
+//!title={The Fastest Similarity Search Algorithm for Time Series Subsequences under Euclidean Distance},
+//!author={ Mueen, Abdullah and Zhu, Yan and Yeh, Michael and Kamgar, Kaveh and Viswanathan, Krishnamurthy and Gupta, Chetan and Keogh, Eamonn},
+//!year={2017},
+//!month={August},
+//!note = {\url{http://www.cs.unm.edu/~mueen/FastestSimilaritySearch.html}}
+//!}
+
 use std::fmt::Debug;
 
-use std::{ops, vec};
-
-use itertools::Itertools;
-use rustfft::num_complex::Complex;
-use rustfft::num_traits::Zero;
+use std::ops;
 
 use num_cpus;
 pub mod math;
@@ -12,11 +35,12 @@ pub mod stats;
 
 pub mod time_series;
 use math::argmin;
-use rustfft::FFTplanner;
-use stats::{append, mean, moving_avg as ma, moving_std as mstd, std, Append};
+use math::fft_mult;
+use stats::{mean, moving_avg as ma, moving_std as mstd, std};
 
 pub trait MassType: PartialOrd + From<f64> + Into<f64> + Copy + ops::Add<f64> + Debug {}
 
+/// compute the MASS distance and return the index and value of the minimum found.
 fn min_subsequence_distance<T>(start_idx: usize, subsequence: &[T], query: &[T]) -> (usize, f64)
 where
     T: MassType,
@@ -26,13 +50,10 @@ where
     //  find mininimum index of this batch which will be between 0 and batch_size
     let min_idx = argmin(&distances);
 
-    // add this distance to best distances
+    // add the minimum distance found to the best distances
     let dist = distances[min_idx];
 
-    // println!("{:?}", subsequence);
-
-    // compute the actual index and store it
-    // fix index mapping due to window + stepby TODO
+    // compute the global index
     let index = min_idx + start_idx;
 
     return (index, dist);
@@ -56,49 +77,16 @@ where
     // Rolling mean and std for the time series
     let rolling_mean_ts = {
         let avgs = ma(ts, m);
-        append(avgs, m - 1, 1.0, Append::Front)
+        avgs
     };
 
     let rolling_sigma_ts = {
         let sigmas = mstd(ts, m);
-        append(sigmas, m - 1, 0.0, Append::Front)
+        sigmas
     };
 
-    //flip query and add padding zeroes until it fits ts' length.
-    let y = {
-        let reversed: Vec<T> = query.iter().rev().map(|v| *v).collect();
-        append(reversed, n - m, (0.0).into(), Append::Back)
-    };
+    let z = fft_mult(&ts, &query);
 
-    // build in/out buffers for the FFTs
-    let mut y: Vec<_> = y.iter().map(|y| Complex::new((*y).into(), 0.0)).collect();
-    let mut y_o = vec![Complex::<f64>::zero(); y.len()];
-
-    let mut x: Vec<_> = ts.iter().map(|x| Complex::new((*x).into(), 0.0)).collect();
-    let mut x_o = vec![Complex::<f64>::zero(); x.len()];
-
-    // FFTs
-    let mut forward = FFTplanner::<f64>::new(false);
-    let mut inverse = FFTplanner::<f64>::new(true);
-
-    let fft = forward.plan_fft(n);
-    let ifft = inverse.plan_fft(n);
-    fft.process(&mut x[..], &mut x_o[..]);
-    fft.process(&mut y[..], &mut y_o[..]);
-    // mult transforms
-    let mut z: Vec<Complex<_>> = x_o
-        .iter()
-        .zip(y_o.iter())
-        .map(|(x, y)| (*x) * (*y))
-        .collect();
-
-    // inverse fft, reuse buffer
-    let z_o = &mut x_o[..];
-    ifft.process(&mut z[..], z_o);
-    // is it safe to drop im part??
-    let z: Vec<f64> = z_o.iter().map(|z| (*z).re).collect();
-
-    // println!("{:?}", z);
     let dist = math::dist(
         mu_q,
         sigma_q,
@@ -116,12 +104,10 @@ pub fn cpus() -> usize {
     num_cpus::get()
 }
 
-///MASS2 batch is a batch version of MASS2 that reduces overall memory usage,
-///provides parallelization and enables you to find top K number of matches
-///within the time series. The goal of using this implementation is for very
-///large time series similarity search. The returned results are not sorted
-///by distance. So you will need to find the top match with np.argmin() or
-///sort them yourself.
+/// Masss batch finds top K subsequences with the lowest distance profile for a given query.
+/// This method implements MASS V3 where chunks are split in powers of two and computed in parallel.
+/// Results are partitioned and not sorted, you can sort them afterwards if required.
+/// Parallelization is yet to be implemented.
 pub fn mass_batch<T: MassType>(
     ts: &[T],
     query: &[T],
@@ -143,45 +129,19 @@ pub fn mass_batch<T: MassType>(
     // TODO support nth top matches in parallel
     // consider doing full nth top matches with a partition pseudosort per thread to ensure global optima.
 
-    let step_size = {
-        let x = batch_size - query.len();
-        if x == 0 {
-            1
-        } else {
-            x
-        }
-    };
-
-    let chunks = ts.windows(batch_size).step_by(step_size);
-
-    let remainder = ts.len() % (step_size);
-    let start = ts.len() - remainder;
-
-    // replace with into_iter() TODO
-    let tail = (&ts[start..]).chunks(batch_size);
-
-    let mut dists: Vec<_> = chunks
-        .chain(tail)
-        .enumerate()
-        .map(|(i, subsequence)| {
-            // print!("{} {} {:p}\n", i, batch_size, subsequence);
-            // print!("{} {}\n", i, batch_size);
-            min_subsequence_distance(i * step_size, subsequence, query)
-        })
+    let mut dists: Vec<_> = job_index(ts.len(), query.len(), batch_size, jobs)
+        .map(|(l, h)| min_subsequence_distance(l, &ts[l..=h], query))
         .collect();
 
-    // let mut dists: Vec<_> = ts;
     // TODO implement partition instead of sort to reduce complexity from $O(Log(n)) \rightarrow O(n)$
     // use itertools partition TODO
-    // todo!();
     dists.sort_unstable_by(|x, y| x.1.partial_cmp(&(y.1)).unwrap());
-    // print!("{:?}", &dists[..top_matches]);
 
     dists.iter().take(top_matches).copied().collect()
 }
 
-///batches into windows of the max between query length and [´batch_size´].
-/// rounds up batch size to the nearest power of two.
+/// Generate the index for time series slices of size batch size; Batch size may be rounded to the nearest power of two.
+/// Rounding to the nearest power of two may panic! if the new batch size is greater than the time series' length.
 #[inline]
 pub fn job_index(
     ts: usize,
@@ -198,16 +158,20 @@ pub fn job_index(
         batch_size = batch_size.next_power_of_two();
     }
 
-    let step_size = batch_size - query;
+    debug_assert!(batch_size <= ts);
+    debug_assert!(batch_size >= query);
 
-    let index = (0..ts)
+    let step_size = batch_size - (query - 1);
+
+    let index = (0..ts - query)
         .step_by(step_size)
-        .map(move |i| (i, ts.min(i + batch_size - 1)));
+        .map(move |i| (i, (ts - 1).min(i + batch_size - 1)));
     index
 }
 
 #[cfg(test)]
 pub mod tests {
+
     use super::*;
 
     #[test]
@@ -216,20 +180,60 @@ pub mod tests {
     }
 
     #[test]
-    fn jobs_range() {
-        let a = job_index(10, 2, 4, 1);
+    #[ignore = "for manual inspection purposes"]
+    fn jobs_range_0() {
+        let a = job_index(6, 2, 4, 1);
         for i in a {
             print!("{:?}\n", i);
         }
     }
 
-    ///When batching with [batch_size] < ts.len() the resulting overlapping window may not be properly sliced.
     #[test]
-    fn overlapping_window() {
-        let a = &[0.0, 1.0, 2., 3., 5., 6.];
-        let b = &[2.0, 3.0];
-        let bsize = b.len();
+    fn jobs_range_1() {
+        let mut a = job_index(10, 4, 5, 1);
+        assert!(a.next().unwrap() == (0, 7));
+        assert!(a.next().unwrap() == (5, 9));
+        assert!(a.next() == None);
+    }
+
+    #[test]
+    fn jobs_range_2() {
+        let mut a = job_index(6, 2, 4, 1);
+        assert!(a.next().unwrap() == (0, 3));
+        assert!(a.next().unwrap() == (3, 5));
+        assert!(a.next() == None);
+    }
+
+    #[test]
+    fn jobs_range_3() {
+        let mut a = job_index(8, 2, 8, 1);
+        assert!(a.next().unwrap() == (0, 7));
+        assert!(a.next() == None);
+    }
+    #[test]
+    fn jobs_range_4() {
+        let mut a = job_index(6, 3, 4, 1);
+
+        assert!(a.next().unwrap() == (0, 3));
+        assert!(a.next().unwrap() == (2, 5));
+        assert!(a.next() == None);
+    }
+
+    #[test]
+    fn integration_1() {
+        let a = &[10., 3., 2., 3., 4.5, 6., 0., -1.];
+        let b = &[2., 3.];
+        let bsize = 4;
         let c = mass_batch(a, b, bsize, 1, 1);
+        println!("{:?}", c);
         assert!(c[0].0 == 2);
+    }
+
+    #[test]
+    fn integration_2() {
+        let a = &[0., 10., 20., 30., 50., 10.];
+        let b = &[2., 3., 2.];
+        let c = mass_batch(a, b, 4, 1, 1);
+        assert!(c[0].0 == 3);
     }
 }
