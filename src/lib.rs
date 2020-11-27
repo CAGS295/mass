@@ -45,7 +45,7 @@ fn min_subsequence_distance<T>(start_idx: usize, subsequence: &[T], query: &[T])
 where
     T: MassType,
 {
-    let distances = mass2(subsequence, query);
+    let distances = mass(subsequence, query);
 
     //  find mininimum index of this batch which will be between 0 and batch_size
     let min_idx = argmin(&distances);
@@ -61,7 +61,7 @@ where
 
 /// Compute the distance profile for the given query over the given time
 /// series. Optionally, the correlation coefficient can be returned.
-pub fn mass2<T: Debug>(ts: &[T], query: &[T]) -> Vec<f64>
+pub fn mass<T: Debug>(ts: &[T], query: &[T]) -> Vec<f64>
 where
     T: MassType,
 {
