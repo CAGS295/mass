@@ -14,7 +14,7 @@ impl<T> TimeSeries<T> {
 }
 
 /// Represents an observation (entry) at time $t$ in a time series.
-#[derive(Deserialize, Debug, Copy, Clone, PartialOrd, PartialEq)]
+#[derive(Deserialize, Debug, Copy, Clone, PartialOrd, PartialEq, Default)]
 pub struct Record<T>(T);
 
 impl From<f64> for Record<f64> {

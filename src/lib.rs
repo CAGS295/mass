@@ -38,7 +38,10 @@ use math::argmin;
 use math::fft_mult;
 use stats::{mean, moving_avg as ma, moving_std as mstd, std};
 
-pub trait MassType: PartialOrd + From<f64> + Into<f64> + Copy + ops::Add<f64> + Debug {}
+pub trait MassType:
+    PartialOrd + From<f64> + Into<f64> + Copy + ops::Add<f64> + Debug + Default
+{
+}
 
 /// compute the MASS distance and return the index and value of the minimum found.
 fn min_subsequence_distance<T>(start_idx: usize, subsequence: &[T], query: &[T]) -> (usize, f64)
@@ -61,7 +64,7 @@ where
 
 /// Compute the distance profile for the given query over the given time
 /// series. Optionally, the correlation coefficient can be returned.
-pub fn mass<T: Debug>(ts: &[T], query: &[T]) -> Vec<f64>
+pub fn mass<T: Debug + Default>(ts: &[T], query: &[T]) -> Vec<f64>
 where
     T: MassType,
 {
