@@ -27,6 +27,8 @@
 
 use std::fmt::Debug;
 
+use rayon::iter::ParallelBridge;
+use rayon::prelude::*;
 use std::ops;
 
 use num_cpus;
@@ -39,7 +41,7 @@ use math::fft_mult;
 use stats::{mean, moving_avg as ma, moving_std as mstd, std};
 
 pub trait MassType:
-    PartialOrd + From<f64> + Into<f64> + Copy + ops::Add<f64> + Debug + Default
+    PartialOrd + From<f64> + Into<f64> + Copy + ops::Add<f64> + Debug + Default + Sync
 {
 }
 
@@ -133,6 +135,8 @@ pub fn mass_batch<T: MassType>(
     // consider doing full nth top matches with a partition pseudosort per thread to ensure global optima.
 
     let mut dists: Vec<_> = job_index(ts.len(), query.len(), batch_size, jobs)
+        .into_iter()
+        .par_bridge()
         .map(|(l, h)| min_subsequence_distance(l, &ts[l..=h], query))
         .collect();
 

@@ -18,6 +18,7 @@ pseudo_distance = []
 itertools = "*"
 jemallocator = {version = "*", optional = true}
 num_cpus = "*"
+rayon = "*"
 rustfft = "*"
 serde = {version = "*", features = ["derive"]}
 
