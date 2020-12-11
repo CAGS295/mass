@@ -177,4 +177,17 @@ pub mod tests {
         let b = rolling_std(&x, 3);
         izip!(a.iter(), b.iter()).for_each(|(a, b)| assert!(a - b < 1e-15));
     }
+
+    #[test]
+    fn rolling_mean_0() {
+        let x = [2., 4., 5., 6., 7., 6., 5.];
+        let res = [3., 4.5, 5.5, 6.5, 6.5, 5.5];
+
+        let rm = rolling_mean(&x, 2);
+        itertools::assert_equal(rm.iter(), res.iter());
+        for i in rm {
+            print!("{} ", i);
+        }
+        println!();
+    }
 }
