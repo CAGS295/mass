@@ -19,8 +19,8 @@ pub fn argmin<T: PartialOrd + Copy>(values: &[T]) -> usize {
 pub fn dist(
     mu_q: f64,
     sigma_q: f64,
-    mu_x: &[f64],
-    sigma_x: &[f64],
+    mu_x: impl Iterator<Item = f64>,
+    sigma_x: impl Iterator<Item = f64>,
     x_len: usize,
     y_len: usize,
     z: &[f64],
@@ -32,14 +32,14 @@ pub fn dist(
     let mu_x_clipped = mu_x;
     let sigma_x_clipped = sigma_x;
 
-    debug_assert!(
-        z_clipped.len() == mu_x_clipped.len() && z_clipped.len() == sigma_x_clipped.len()
-    );
+    // debug_assert!(
+    //     z_clipped.len() == mu_x_clipped.len() && z_clipped.len() == sigma_x_clipped.len()
+    // );
 
     let vars = izip!(mu_x_clipped, sigma_x_clipped, z_clipped);
 
     // faster with same opt. goal .5dist^2$
-    let f = |(mu_x, s_x, z): (&f64, &f64, &f64)| -> f64 {
+    let f = |(mu_x, s_x, z): (f64, f64, &f64)| -> f64 {
         let divisor = z - n_y * mu_x * mu_q;
         let dividend = s_x * sigma_q;
         #[cfg(not(feature = "pseudo_distance"))]

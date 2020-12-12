@@ -95,8 +95,8 @@ where
     let dist = math::dist(
         mu_q,
         sigma_q,
-        &rolling_mean_ts[..],
-        &rolling_sigma_ts[..],
+        rolling_mean_ts,
+        rolling_sigma_ts,
         n,
         m,
         &z[..],
@@ -150,7 +150,7 @@ pub fn mass_batch<T: MassType>(
 /// Generate the index for time series slices of size batch size; Batch size may be rounded to the nearest power of two.
 /// Rounding to the nearest power of two may panic! if the new batch size is greater than the time series' length.
 #[inline]
-pub fn job_index(
+fn job_index(
     ts: usize,
     query: usize,
     mut batch_size: usize,
