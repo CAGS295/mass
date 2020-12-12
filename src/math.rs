@@ -29,14 +29,8 @@ pub fn dist(
     let start = y_len - 1;
     let end = x_len;
     let z_clipped = &z[start..end];
-    let mu_x_clipped = mu_x;
-    let sigma_x_clipped = sigma_x;
 
-    // debug_assert!(
-    //     z_clipped.len() == mu_x_clipped.len() && z_clipped.len() == sigma_x_clipped.len()
-    // );
-
-    let vars = izip!(mu_x_clipped, sigma_x_clipped, z_clipped);
+    let vars = izip!(mu_x, sigma_x, z_clipped);
 
     // faster with same opt. goal .5dist^2$
     let f = |(mu_x, s_x, z): (f64, f64, &f64)| -> f64 {
@@ -67,11 +61,11 @@ where
     debug_assert!(n == y.len());
 
     // build in/out buffers for the FFTs
-    let mut y: Vec<_> = y.iter().map(|y| Complex::new((*y).into(), 0.0)).collect();
+    let mut y: Vec<_> = y.iter().map(|&y| Complex::new(y.into(), 0.0)).collect();
 
     let mut y_o = vec![Complex::<f64>::zero(); y.len()];
 
-    let mut x: Vec<_> = ts.iter().map(|x| Complex::new((*x).into(), 0.0)).collect();
+    let mut x: Vec<_> = ts.iter().map(|&x| Complex::new(x.into(), 0.0)).collect();
     let mut x_o = vec![Complex::<f64>::zero(); x.len()];
 
     // FFTs
@@ -90,8 +84,7 @@ where
     ifft.process(&mut z[..], z_o);
     let k = n as f64;
 
-    let z: Vec<f64> = z_o.iter().map(|z| (*z).re / k).collect();
-    z
+    x.iter().map(move |&z| z.re / k).collect::<Vec<f64>>()
 }
 
 #[cfg(test)]

@@ -80,15 +80,9 @@ where
     let sigma_q = std(query);
 
     // Rolling mean and std for the time series
-    let rolling_mean_ts = {
-        let avgs = ma(ts, m);
-        avgs
-    };
+    let rolling_mean_ts = ma(ts, m);
 
-    let rolling_sigma_ts = {
-        let sigmas = mstd(ts, m);
-        sigmas
-    };
+    let rolling_sigma_ts = mstd(ts, m);
 
     let z = fft_mult(&ts, &query);
 

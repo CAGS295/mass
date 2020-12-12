@@ -140,28 +140,33 @@ pub fn rolling_mean<T: Into<f64> + Add<f64> + Copy>(
 }
 
 /// $$E_[X]$$
+#[inline]
 pub fn mean<T: Into<f64> + Add<f64> + Copy>(values: &[T]) -> f64 {
     sum(values) / values.len() as f64
 }
 
 /// $$E[X^2]$$
+#[inline]
 fn e_x2<T: Into<f64> + Add<f64> + Copy>(values: &[T]) -> f64 {
     sum_squared(values) / values.len() as f64
 }
 
 ///$$Var[X]$$
 // could use an online method
+#[inline]
 pub fn var<T: Into<f64> + Add<f64> + Copy>(values: &[T]) -> f64 {
     let mu = mean(values);
     e_x2(values) - mu * mu
 }
 
 ///Standard Deviation of X
+#[inline]
 pub fn std<T: Into<f64> + Add<f64> + Copy>(values: &[T]) -> f64 {
     var(values).sqrt()
 }
 
 ///Moving Average of X
+#[inline]
 pub fn moving_avg<'a, T: Into<f64> + Add<f64> + Copy>(
     values: &'a [T],
     periods: usize,
@@ -200,7 +205,7 @@ pub fn normalization<T: Into<f64> + Add<f64> + DivAssign<f64> + SubAssign<f64> +
     let (mu, sigma) = (mean(values), std(values));
     values
         .iter()
-        .map(move |v| ((*v).into() - mu) / sigma)
+        .map(move |&v| (v.into() - mu) / sigma)
         .collect()
 }
 
