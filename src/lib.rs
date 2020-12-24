@@ -157,7 +157,7 @@ pub fn mass_batch<T: MassType>(
         .map(|(l, h)| min_subsequence_distance(l, &ts[l..=h], query))
         .collect();
 
-    debug_assert!(
+    assert!(
         dists.len() >= top_matches,
         format!(
             "top_matches [{}] must be less or equal than the total batch count [{}], choose a smaller batch_size or less top_matches ",
