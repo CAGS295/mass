@@ -135,9 +135,11 @@ fn start_pool(jobs: usize) {
 pub fn init_pool(threads: usize) {
     JOBS_SET.call_once(|| start_pool(threads));
 }
-/// Masss batch finds top K subsequences with the lowest distance profile for a given query.
+/// Masss batch finds top subsequence per batch the lowest distance profile for a given query and returns the top K subsequences.
+/// This behavior is useful when you want to filter adjacent suboptimal subsequences in each batch,
+/// where the local optimum overlaps with suboptima differing only by a few index strides.
 /// This method implements MASS V3 where chunks are split in powers of two and computed in parallel.
-/// Results are partitioned and not sorted, you can sort them afterwards if required.
+/// Results are partitioned and not sorted, you can sort them afterwards if needed.
 pub fn mass_batch<T: MassType>(
     ts: &[T],
     query: &[T],
@@ -147,7 +149,6 @@ pub fn mass_batch<T: MassType>(
     debug_assert!(batch_size > 0, "batch_size must be greater than 0.");
     debug_assert!(top_matches > 0, "Match at least one.");
 
-    // split work into chunks
     // TODO support nth top matches in parallel
     // consider doing full nth top matches with a partition pseudosort per thread to ensure global optima.
     let mut dists: Vec<_> = task_index(ts.len(), query.len(), batch_size)
@@ -156,9 +157,15 @@ pub fn mass_batch<T: MassType>(
         .map(|(l, h)| min_subsequence_distance(l, &ts[l..=h], query))
         .collect();
 
-    // TODO implement partition instead of sort to reduce complexity from $O(Log(n)) \rightarrow O(n)$
-    // use itertools partition TODO
-    dists.sort_unstable_by(|x, y| x.1.partial_cmp(&(y.1)).unwrap());
+    debug_assert!(
+        dists.len() >= top_matches,
+        format!(
+            "top_matches [{}] must be less or equal than the total batch count [{}], choose a smaller batch_size or less top_matches ",
+            top_matches,
+            dists.len()
+        )
+    );
+    dists.select_nth_unstable_by(top_matches - 1, |x, y| x.1.partial_cmp(&(y.1)).unwrap());
 
     dists.iter().take(top_matches).copied().collect()
 }
@@ -186,7 +193,7 @@ fn task_index(
     );
     debug_assert!(
         batch_size >= query,
-        "batchsize after net power of two must be greater or equal than query's length"
+        "batchsize after next power of two must be greater or equal than query's length"
     );
 
     let step_size = batch_size - (query - 1);
@@ -261,9 +268,9 @@ pub mod tests {
         let a = &[10., 3., 2., 3., 4.5, 6., 0., -1.];
         let b = &[2., 3.];
         let bsize = 4;
-        let c = mass_batch(a, b, bsize, 1);
+        let c = mass_batch(a, b, bsize, 2);
         println!("{:?}", c);
-        assert!(c[0].0 == 2);
+        assert!(c[0].0 == 3);
     }
 
     #[test]
