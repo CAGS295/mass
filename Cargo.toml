@@ -8,7 +8,8 @@ version = "0.1.0"
 crate-type = ["lib"]
 
 [features]
-default = ["pseudo_distance"]
+auto = []
+default = ["pseudo_distance", "auto"]
 jemalloc = ["jemallocator"]
 pseudo_distance = []
 

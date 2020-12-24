@@ -13,9 +13,10 @@
 
 //!##features
 
-//!["jemalloc"] *TODO*
+//!["jemalloc"] enable jemallocator as memory allocator.
 //!["pseudo_distance"] simplifies the distance with the same optimization goal for increased performance.
-//!The distance output is no longer a distance but a score with the same optimum.
+//!The distance output is no longer the MASS distance but a score with the same optimum.
+//!["auto"] uses all logical cores to parallelize batch functions. Enabled by default. Disabling this feature exposes ['init_pool()`] to init the global thread pool.
 
 //!@misc{FastestSimilaritySearch,
 //!title={The Fastest Similarity Search Algorithm for Time Series Subsequences under Euclidean Distance},
@@ -109,32 +110,47 @@ pub fn cpus() -> usize {
     num_cpus::get()
 }
 
+#[cfg(not(feature = "auto"))]
+use std::sync::Once;
+
+#[cfg(not(feature = "auto"))]
+static JOBS_SET: Once = Once::new();
+
+// Init global pool with [`jobs`] threads.
+#[cfg(not(feature = "auto"))]
+fn start_pool(jobs: usize) {
+    assert!(jobs > 0, "Job count must be at least 1.");
+    // silently use at max all available logical cpus
+    let jobs = jobs.min(cpus());
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(jobs)
+        .build_global()
+        .unwrap();
+}
+
+// Initialize the threadpool with [`threads`] threads. This method will take effect once and
+//  must be called before the first call to [`mass_batch`]. Once the pool has been instantiated the threadpool is final.
+// The limitation on the global threadpool being final comes from the ['rayon'] dependency and is subject to change.
+#[cfg(not(feature = "auto"))]
+pub fn init_pool(threads: usize) {
+    JOBS_SET.call_once(|| start_pool(threads));
+}
 /// Masss batch finds top K subsequences with the lowest distance profile for a given query.
 /// This method implements MASS V3 where chunks are split in powers of two and computed in parallel.
 /// Results are partitioned and not sorted, you can sort them afterwards if required.
-/// Parallelization is yet to be implemented.
 pub fn mass_batch<T: MassType>(
     ts: &[T],
     query: &[T],
     batch_size: usize,
     top_matches: usize,
-    jobs: usize,
 ) -> Vec<(usize, f64)> {
-    // asserts
     debug_assert!(batch_size > 0, "batch_size must be greater than 0.");
     debug_assert!(top_matches > 0, "Match at least one.");
-    debug_assert!(jobs > 0, "Job count must be at least 1.");
-
-    // silently use at max all available cpus;not supported atm
-    let jobs = jobs.min(cpus());
 
     // split work into chunks
-    //TODO schedule jobs
-    assert!(jobs == 1);
     // TODO support nth top matches in parallel
     // consider doing full nth top matches with a partition pseudosort per thread to ensure global optima.
-
-    let mut dists: Vec<_> = job_index(ts.len(), query.len(), batch_size, jobs)
+    let mut dists: Vec<_> = task_index(ts.len(), query.len(), batch_size)
         .into_iter()
         .par_bridge()
         .map(|(l, h)| min_subsequence_distance(l, &ts[l..=h], query))
@@ -150,11 +166,10 @@ pub fn mass_batch<T: MassType>(
 /// Generate the index for time series slices of size batch size; Batch size may be rounded to the nearest power of two.
 /// Rounding to the nearest power of two may panic! if the new batch size is greater than the time series' length.
 #[inline]
-fn job_index(
+fn task_index(
     ts: usize,
     query: usize,
     mut batch_size: usize,
-    _jobs: usize,
 ) -> impl Iterator<Item = (usize, usize)> {
     assert!(
         batch_size > query,
@@ -165,8 +180,14 @@ fn job_index(
         batch_size = batch_size.next_power_of_two();
     }
 
-    debug_assert!(batch_size <= ts);
-    debug_assert!(batch_size >= query);
+    debug_assert!(
+        batch_size <= ts,
+        "batchsize after next power of two must be less or equal than series' length"
+    );
+    debug_assert!(
+        batch_size >= query,
+        "batchsize after net power of two must be greater or equal than query's length"
+    );
 
     let step_size = batch_size - (query - 1);
 
@@ -186,10 +207,19 @@ pub mod tests {
         assert_eq!(5usize / 2usize, 2);
     }
 
+    // must run before any other call to [`mass_batch`] for it to pass. See [`init_pool`].
+    #[test]
+    #[cfg(not(feature = "auto"))]
+    fn init_tpool() {
+        let t = 4;
+        init_pool(t);
+        assert!(rayon::current_num_threads() == t);
+    }
+
     #[test]
     #[ignore = "for manual inspection purposes"]
     fn jobs_range_0() {
-        let a = job_index(6, 2, 4, 1);
+        let a = task_index(6, 2, 4);
         for i in a {
             print!("{:?}\n", i);
         }
@@ -197,7 +227,7 @@ pub mod tests {
 
     #[test]
     fn jobs_range_1() {
-        let mut a = job_index(10, 4, 5, 1);
+        let mut a = task_index(10, 4, 5);
         assert!(a.next().unwrap() == (0, 7));
         assert!(a.next().unwrap() == (5, 9));
         assert!(a.next() == None);
@@ -205,7 +235,7 @@ pub mod tests {
 
     #[test]
     fn jobs_range_2() {
-        let mut a = job_index(6, 2, 4, 1);
+        let mut a = task_index(6, 2, 4);
         assert!(a.next().unwrap() == (0, 3));
         assert!(a.next().unwrap() == (3, 5));
         assert!(a.next() == None);
@@ -213,13 +243,13 @@ pub mod tests {
 
     #[test]
     fn jobs_range_3() {
-        let mut a = job_index(8, 2, 8, 1);
+        let mut a = task_index(8, 2, 8);
         assert!(a.next().unwrap() == (0, 7));
         assert!(a.next() == None);
     }
     #[test]
     fn jobs_range_4() {
-        let mut a = job_index(6, 3, 4, 1);
+        let mut a = task_index(6, 3, 4);
 
         assert!(a.next().unwrap() == (0, 3));
         assert!(a.next().unwrap() == (2, 5));
@@ -231,7 +261,7 @@ pub mod tests {
         let a = &[10., 3., 2., 3., 4.5, 6., 0., -1.];
         let b = &[2., 3.];
         let bsize = 4;
-        let c = mass_batch(a, b, bsize, 1, 1);
+        let c = mass_batch(a, b, bsize, 1);
         println!("{:?}", c);
         assert!(c[0].0 == 2);
     }
@@ -240,7 +270,16 @@ pub mod tests {
     fn integration_2() {
         let a = &[0., 10., 20., 30., 50., 10.];
         let b = &[2., 3., 2.];
-        let c = mass_batch(a, b, 4, 1, 1);
+        let c = mass_batch(a, b, 4, 1);
+        assert!(c[0].0 == 3);
+    }
+
+    //[´jobs´] greater that logical cores
+    #[test]
+    fn integration_3() {
+        let a = &[0., 10., 20., 30., 50., 10.];
+        let b = &[2., 3., 2.];
+        let c = mass_batch(a, b, 4, 1);
         assert!(c[0].0 == 3);
     }
 }
