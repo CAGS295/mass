@@ -25,10 +25,10 @@
 //!month={August},
 //!note = {\url{http://www.cs.unm.edu/~mueen/FastestSimilaritySearch.html}}
 //!}
-#[cfg(all(not(target_env = "msvc"), jemallocator))]
+#[cfg(all(not(target_env = "msvc"), feature = "jemallocator"))]
 use jemallocator::Jemalloc;
 
-#[cfg(all(not(target_env = "msvc"), jemallocator))]
+#[cfg(all(not(target_env = "msvc"), feature = "jemallocator"))]
 #[global_allocator]
 static GLOBAL: Jemalloc = Jemalloc;
 
