@@ -107,10 +107,10 @@ impl<'a, T: 'a + Into<f64> + Copy> Iterator for RollingMean<'a, T> {
     fn next(&mut self) -> Option<Self::Item> {
         match self.packed_slices.next() {
             Some((&x_a, &x_b)) => {
-                let divisor = self.sum;
+                let dividend = self.sum;
                 self.sum -= x_a.into();
                 self.sum += x_b.into();
-                Some(divisor / self.n)
+                Some(dividend / self.n)
             }
             None => {
                 if self.extra {

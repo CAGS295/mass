@@ -34,12 +34,12 @@ pub fn dist(
 
     // faster with same opt. goal .5dist^2$
     let f = |(mu_x, s_x, z): (f64, f64, &f64)| -> f64 {
-        let divisor = z - n_y * mu_x * mu_q;
-        let dividend = s_x * sigma_q;
+        let dividend = z - n_y * mu_x * mu_q;
+        let divisor = s_x * sigma_q;
         #[cfg(not(feature = "pseudo_distance"))]
-        let res = (2. * (n_y - divisor / dividend)).sqrt();
+        let res = (2. * (n_y - dividend / divisor)).sqrt();
         #[cfg(feature = "pseudo_distance")]
-        let res = n_y - divisor / dividend;
+        let res = n_y - dividend / divisor;
         res
     };
 
