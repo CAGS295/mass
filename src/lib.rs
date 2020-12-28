@@ -58,6 +58,7 @@
 //! //Complete distance profile
 //!dbg!(res);
 //!```
+
 #[cfg(all(not(target_env = "msvc"), feature = "jemallocator"))]
 use jemallocator::Jemalloc;
 
