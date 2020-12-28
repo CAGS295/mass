@@ -1,7 +1,11 @@
 [package]
 authors = ["carlos alejandro gutierrez sandoval <calgusa@gmail.com>"]
+categories = ["science"]
 edition = "2018"
+keywords = ["MASS", "similarity-search", "data-science", "time-series", "HPC"]
+license = "MIT"
 name = "super_mass"
+repository = "https://github.com/CAGS295/mass"
 version = "0.1.0"
 
 [lib]
