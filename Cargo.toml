@@ -2,6 +2,10 @@
 authors = ["carlos alejandro gutierrez sandoval <calgusa@gmail.com>"]
 categories = ["science"]
 edition = "2018"
+include = [
+  "**/*.rs",
+  "Cargo.toml",
+]
 keywords = ["MASS", "similarity-search", "data-science", "time-series", "HPC"]
 license = "MIT"
 name = "super_mass"
