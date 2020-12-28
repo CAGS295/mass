@@ -139,7 +139,7 @@ pub fn rolling_mean<T: Into<f64> + Add<f64> + Copy>(
     RollingMean::new(sum, window_size, packed_slices)
 }
 
-/// $$E_[X]$$
+/// $$E_\[X\]$$
 #[inline]
 pub fn mean<T: Into<f64> + Add<f64> + Copy>(values: &[T]) -> f64 {
     sum(values) / values.len() as f64
@@ -151,7 +151,7 @@ fn e_x2<T: Into<f64> + Add<f64> + Copy>(values: &[T]) -> f64 {
     sum_squared(values) / values.len() as f64
 }
 
-///$$Var[X]$$
+///$$Var\[X\]$$
 // could use an online method
 #[inline]
 pub fn var<T: Into<f64> + Add<f64> + Copy>(values: &[T]) -> f64 {
@@ -243,9 +243,5 @@ pub mod tests {
 
         let rm = rolling_mean(&x, 2).collect::<Vec<_>>();
         itertools::assert_equal(rm.iter(), res.iter());
-        // for i in rm {
-        //     print!("{} ", i);
-        // }
-        // println!();
     }
 }

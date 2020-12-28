@@ -1,30 +1,63 @@
 //!
 //!MASS: Mueen's Algorithm for Similarity Search in Rust!
 
-//! > Similarity search for time series subsequences is THE most important subroutine for time series pattern mining. Subsequence similarity search has been scaled to trillions obsetvations under both DTW (Dynamic Time Warping) and Euclidean distances [a]. The algorithms are ultra fast and efficient. The key technique that makes the algorithms useful is the Early Abandoning technique [b,e] known since 1994. However, the algorithms lack few properties that are useful for many time series data mining algorithms.
+//! > Similarity search for time series subsequences is THE most important subroutine for time series pattern mining. Subsequence similarity search has been scaled to trillions obsetvations under both DTW (Dynamic Time Warping) and Euclidean distances \[a\]. The algorithms are ultra fast and efficient. The key technique that makes the algorithms useful is the Early Abandoning technique \[b,e\] known since 1994. However, the algorithms lack few properties that are useful for many time series data mining algorithms.
 
 //! > 1. Early abandoning depends on the dataset. The worst case complexity is still O(nm) where n is the length of the larger time series and m is the length of the short query.
 //! > 2. The algorithm can produce the most similar subsequence to the query and cannot produce the Distance Profile to all the subssequences given the query.
-
-//! > MASS is an algorithm to create Distance Profile of a query to a long time series. In this page we share a code for The Fastest Similarity Search Algorithm for Time Series Subsequences under Euclidean Distance. Early abandoning can occasionally beat this algorithm on some datasets for some queries. This algorithm is independent of data and query. The underlying concept of the algorithm is known for a long time to the signal processing community. We have used it for the first time on time series subsequence search under z-normalization. The algorithm was used as a subroutine in our papers [c,d] and the code are given below.
-
+//! > MASS is an algorithm to create Distance Profile of a query to a long time series. In this page we share a code for The Fastest Similarity Search Algorithm for Time Series Subsequences under Euclidean Distance. Early abandoning can occasionally beat this algorithm on some datasets for some queries. This algorithm is independent of data and query. The underlying concept of the algorithm is known for a long time to the signal processing community. We have used it for the first time on time series subsequence search under z-normalization. The algorithm was used as a subroutine in our papers \[c,d\] and the code are given below.
+//!
 //! > 1. The algorithm has an overall time complexity of O(n log n) which does not depend on datasets and is the lower bound of similarity search over time series subsequences.
-//! > 2. The algorithm produces all of the distances from the query to the subsequences of a long time series. In our recent paper, we generalize the usage of the distance profiles calculated using MASS in finding motifs, shapelets and discords. Check out the paper here.
+//! > 2. The algorithm produces all of the distances from the query to the subsequences of a long time series. In our recent paper, we generalize the usage of the distance profiles calculated using MASS in finding motifs, shapelets and discords.
+//!
+//! Excerpt taken from:
 
-//!##features
-
-//!["jemalloc"] enable jemallocator as memory allocator.
-//!["pseudo_distance"] simplifies the distance with the same optimization goal for increased performance.
-//!The distance output is no longer the MASS distance but a score with the same optimum.
-//!["auto"] uses all logical cores to parallelize batch functions. Enabled by default. Disabling this feature exposes ['init_pool()`] to init the global thread pool.
-
-//!@misc{FastestSimilaritySearch,
+//!```markdown
+//!@misc{
+//!FastestSimilaritySearch,
 //!title={The Fastest Similarity Search Algorithm for Time Series Subsequences under Euclidean Distance},
 //!author={ Mueen, Abdullah and Zhu, Yan and Yeh, Michael and Kamgar, Kaveh and Viswanathan, Krishnamurthy and Gupta, Chetan and Keogh, Eamonn},
 //!year={2017},
 //!month={August},
 //!note = {\url{http://www.cs.unm.edu/~mueen/FastestSimilaritySearch.html}}
 //!}
+//!```
+
+//!
+//!## Features
+//!
+//!`"jemalloc"` enable jemallocator as memory allocator.
+//!
+//!`"pseudo_distance"` simplifies the distance with the same optimization goal for increased performance.
+//!The distance output is no longer the MASS distance but a score with the same optimum.
+//!
+//!`"auto"` uses all logical cores to parallelize batch functions. Enabled by default. Disabling this feature exposes ['init_pool()`] to init the global thread pool.
+//!
+//! ## Panics
+//! TODO
+//! ## Examples
+
+//!```
+//!use rand::{thread_rng, Rng};
+//!
+//!let mut rng = thread_rng();
+//!let ts = (0..10_000).map(|_| rng.gen()).collect::<Vec<f64>>();
+//!let query = (0..500).map(|_| rng.gen()).collect::<Vec<f64>>();
+//!let res = mass_batch(&ts[..], &query[..], 500, 3);
+//! //top_matches (only the best per batch considered) tuples of (index,distance score).
+//!dbg!(res);
+//!```
+
+//!```
+//!use rand::{thread_rng, Rng};
+//!
+//!let mut rng = thread_rng();
+//!let ts = (0..10_000).map(|_| rng.gen()).collect::<Vec<f64>>();
+//!let query = (0..500).map(|_| rng.gen()).collect::<Vec<f64>>();
+//!let res = mass(&ts[..], &query[..], 500, 3);
+//! //Complete distance profile
+//!dbg!(res);
+//!```
 #[cfg(all(not(target_env = "msvc"), feature = "jemallocator"))]
 use jemallocator::Jemalloc;
 
@@ -38,6 +71,7 @@ use rayon::iter::ParallelBridge;
 use rayon::prelude::*;
 use std::ops;
 
+#[cfg(not(feature = "auto"))]
 use num_cpus;
 pub mod math;
 pub mod stats;
@@ -72,7 +106,7 @@ where
 }
 
 /// Compute the distance profile for the given query over the given time
-/// series. Optionally, the correlation coefficient can be returned.
+/// series.
 pub fn mass<T: Debug + Default>(ts: &[T], query: &[T]) -> Vec<f64>
 where
     T: MassType,
@@ -106,7 +140,8 @@ where
 }
 
 // need to try whether chunks over logical is faster than over physical cores SMT!!
-pub fn cpus() -> usize {
+#[cfg(not(feature = "auto"))]
+fn cpus() -> usize {
     num_cpus::get()
 }
 
@@ -135,7 +170,7 @@ fn start_pool(jobs: usize) {
 pub fn init_pool(threads: usize) {
     JOBS_SET.call_once(|| start_pool(threads));
 }
-/// Masss batch finds top subsequence per batch the lowest distance profile for a given query and returns the top K subsequences.
+/// Masss batch finds top subsequence per batch the lowest distance profile for a given `query` and returns the top K subsequences.
 /// This behavior is useful when you want to filter adjacent suboptimal subsequences in each batch,
 /// where the local optimum overlaps with suboptima differing only by a few index strides.
 /// This method implements MASS V3 where chunks are split in powers of two and computed in parallel.

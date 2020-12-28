@@ -16,6 +16,8 @@ pub fn argmin<T: PartialOrd + Copy>(values: &[T]) -> usize {
     index
 }
 
+/// The distance function as defined in MASS. By default feature "pseudo_distance" calculates (.5*dist)^2
+/// to simplify and speedup the computation. This should have the same optimization goal as the original distance metric.
 pub fn dist(
     mu_q: f64,
     sigma_q: f64,
