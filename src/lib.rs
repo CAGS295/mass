@@ -43,7 +43,7 @@
 //!let mut rng = thread_rng();
 //!let ts = (0..10_000).map(|_| rng.gen()).collect::<Vec<f64>>();
 //!let query = (0..500).map(|_| rng.gen()).collect::<Vec<f64>>();
-//!let res = mass_batch(&ts[..], &query[..], 500, 3);
+//!let res = super_mass::mass_batch(&ts[..], &query[..], 501, 3);
 //! //top_matches (only the best per batch considered) tuples of (index,distance score).
 //!dbg!(res);
 //!```
@@ -54,7 +54,7 @@
 //!let mut rng = thread_rng();
 //!let ts = (0..10_000).map(|_| rng.gen()).collect::<Vec<f64>>();
 //!let query = (0..500).map(|_| rng.gen()).collect::<Vec<f64>>();
-//!let res = mass(&ts[..], &query[..], 500, 3);
+//!let res = super_mass::mass(&ts[..], &query[..]);
 //! //Complete distance profile
 //!dbg!(res);
 //!```

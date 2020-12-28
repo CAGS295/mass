@@ -25,12 +25,13 @@ pseudo_distance = []
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-itertools = "*"
-jemallocator = {version = "*", optional = true}
-num_cpus = "*"
-rayon = "*"
-rustfft = "*"
-serde = {version = "*", features = ["derive"]}
+itertools = "^0.10"
+jemallocator = {version = "^0.3", optional = true}
+num_cpus = "^1.13"
+rand = "^0.8"
+rayon = "^1.5"
+rustfft = "^4.1"
+serde = {version = "^1.0", features = ["derive"]}
 
 [profile.test]
 opt-level = 3
