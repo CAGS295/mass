@@ -1,6 +1,7 @@
 [package]
 authors = ["carlos alejandro gutierrez sandoval <calgusa@gmail.com>"]
 categories = ["science"]
+description = "MASS: Mueen's Algorithm for Similarity Search in Rust!"
 edition = "2018"
 include = [
   "**/*.rs",
